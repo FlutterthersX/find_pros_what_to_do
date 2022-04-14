@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:what_to_do/models/todo.dart';
+import 'package:what_to_do/services/todo_service.dart';
 
 void main() {
   runApp(MyApp());
@@ -30,7 +31,23 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   List<Todo> todos = [];
 
-  var _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
+
+  final TodoService _todoService = TodoService();
+
+  @override
+  void initState() {
+    super.initState();
+    getAll();
+  }
+
+  getAll() {
+    _todoService.getAllTodo().then((todos) {
+      setState(() {
+        this.todos = todos;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,22 +62,24 @@ class _MyHomePageState extends State<MyHomePage> {
               child: ListView.builder(
                   itemCount: todos.length,
                   itemBuilder: (context, index) {
+                    final todo = todos[index];
                     return Dismissible(
                       key: UniqueKey(),
-                      onDismissed: (direction) {
+                      onDismissed: (direction) async {
+                        await _todoService.deleteTodo(todo.id!);
                         setState(() {
                           todos.removeAt(index);
                         });
                       },
                       child: ListTile(
                         leading: Text("${index + 1}"),
-                        title: Text(todos[index].title),
+                        title: Text(todo.name),
                         trailing: CupertinoSwitch(
-                          value: todos[index].completed,
-                          onChanged: (value) {
-                            setState(() {
-                              todos[index].completed = value;
-                            });
+                          value: todo.isComplete,
+                          onChanged: (value) async {
+                            todo.isComplete = value;
+                            await _todoService.updateTodo(todo);
+                            setState(() {});
                           },
                         ),
                       ),
@@ -76,8 +95,9 @@ class _MyHomePageState extends State<MyHomePage> {
                     Expanded(
                       flex: 4,
                       child: TextFormField(
-                        onSaved: (value) {
-                          todos.add(Todo(title: value!));
+                        onSaved: (value) async {
+                          await _todoService.createTodo(value!);
+                          getAll();
                         },
                         decoration: InputDecoration(
                             label: Text("What's on your mind?")),
